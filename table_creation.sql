@@ -1,4 +1,5 @@
 create database if not exists project;
+use project;
 
 create table if not exists users(
 user_id int primary key,
@@ -28,11 +29,6 @@ PRIMARY KEY (user_id, course_id),
 FOREIGN KEY (user_id) REFERENCES users(user_id),
 FOREIGN KEY (course_id) REFERENCES course(course_id)
 );
-
-ALTER TABLE course
-MODIFY course_id varchar(10);
-
-
 
 CREATE TABLE if not exists teach (
 user_id INT,
