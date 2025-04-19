@@ -3,7 +3,7 @@ use project;
 
 create table if not exists users(
 user_id int primary key,
-email varchar(30),
+email varchar(50),
 pswrd varchar(30),
 username varchar(50)
 );
@@ -24,7 +24,7 @@ CREATE TABLE if not exists enroll (
 user_id INT,
 course_id INT,
 enroll_date DATE,
-overall_grade varchar(2),
+overall_grade varchar(3),
 PRIMARY KEY (user_id, course_id),
 FOREIGN KEY (user_id) REFERENCES users(user_id),
 FOREIGN KEY (course_id) REFERENCES course(course_id)
