@@ -73,9 +73,9 @@ def create_course(user_id):
     except Exception as e:
         return make_response({'error': str(e)}, 400)
     
-@app.route('/retrieve_course/', defaults={'user_id': None}, methods=['GET'])
-@app.route('/retrieve_course/<user_id>', methods=['GET'])
-def retrieve_course(user_id):
+@app.route('/retrieve_courses/', defaults={'user_id': None}, methods=['GET'])
+@app.route('/retrieve_courses/<user_id>', methods=['GET'])
+def retrieve_courses(user_id):
     try:
         cnx = mysql.connector.connect(host='localhost', user='UWI', password='Database1', database='project')
         cursor = cnx.cursor()
@@ -148,6 +148,32 @@ def registerfor_course(user_id):
         cnx.commit()
         cursor.close()
         return response
+    except Exception as e:
+        return make_response({'error': str(e)}, 400)
+    
+@app.route('/retrieve_members/<course_id>', methods=['GET'])
+def retrieve_members(course_id):
+    try:
+        cnx = mysql.connector.connect(host='localhost', user='UWI', password='Database1', database='project')
+        cursor = cnx.cursor()
+        if course_id.isdigit():
+            cursor.execute(f"SELECT course_name FROM course WHERE course_id = '{course_id}'")
+            course_name=cursor.fetchone()
+            if course_name is None:
+                return make_response({"error": "Course Not Found"}, 403)
+            else:
+                cursor.execute(f"SELECT e.user_id, r.role FROM enroll e JOIN roles r WHERE e.user_id = r.user_id AND e.course_id = '{course_id}' UNION SELECT t.user_id, r.role FROM teach t JOIN roles r WHERE t.user_id = r.user_id AND t.course_id = '{course_id}'")
+                member_list=[]
+                for userid, role in cursor:
+                    memberinfo = {}
+                    memberinfo['User ID'] = userid
+                    memberinfo['Role'] = role
+                    member_list.append(memberinfo)
+                cursor.close()
+                cnx.close()
+                return make_response(member_list), 200
+        else:
+            return make_response({'error': 'Invalid Course ID'}, 400)
     except Exception as e:
         return make_response({'error': str(e)}, 400)
 
