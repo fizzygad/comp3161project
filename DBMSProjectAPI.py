@@ -71,6 +71,56 @@ def create_course(user_id):
         return response
     except Exception as e:
         return make_response({'error': str(e)}, 400)
+    
+@app.route('/retrieve_course/', defaults={'user_id': None}, methods=['GET'])
+@app.route('/retrieve_course/<user_id>', methods=['GET'])
+def retrieve_course(user_id):
+    try:
+        cnx = mysql.connector.connect(host='localhost', user='UWI', password='Database1', database='project')
+        cursor = cnx.cursor()
+        if not user_id:
+            cursor.execute('SELECT * FROM course;')
+            course_list = []
+            for courseid, coursename, description in cursor:
+                courses = {}
+                courses['Course ID'] = courseid
+                courses['Course Name'] = coursename
+                courses['Description'] = description
+                course_list.append(courses)
+            cursor.close()
+            cnx.close()
+            return make_response(course_list), 200
+        elif user_id.isdigit():
+            cursor.execute(f"SELECT role FROM roles WHERE user_id = '{user_id}'")
+            row=cursor.fetchone()
+            if row and row[0].lower()=="student":
+                cursor.execute(f"SELECT e1.user_id, e1.course_id, c1.course_name FROM enroll as e1 JOIN course as c1 WHERE e1.course_id=c1.course_id AND e1.user_id='{user_id}';")
+                student_courses=[]
+                for userid, courseid, coursename in cursor:
+                    stuinfo = {}
+                    stuinfo['User ID'] = userid
+                    stuinfo['Course ID'] = courseid
+                    stuinfo['Course Name'] = coursename
+                    student_courses.append(stuinfo)
+                cursor.close()
+                cnx.close()
+                return make_response(student_courses), 200
+            elif row and row[0].lower()=="lecturer":
+                cursor.execute(f"SELECT t1.user_id, t1.course_id, c1.course_name FROM teach as t1 JOIN course as c1 WHERE t1.course_id=c1.course_id AND t1.user_id='{user_id}';")
+                lecturer_courses=[]
+                for userid, courseid, coursename in cursor:
+                    lecinfo = {}
+                    lecinfo['User ID'] = userid
+                    lecinfo['Course ID'] = courseid
+                    lecinfo['Course Name'] = coursename
+                    lecturer_courses.append(lecinfo)
+                cursor.close()
+                cnx.close()
+                return make_response(lecturer_courses), 200
+        else:
+            return make_response({'error': 'User not found'}, 400)
+    except Exception as e:
+        return make_response({'error': str(e)}, 400)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(port=5000, debug=True)
