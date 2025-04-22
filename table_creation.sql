@@ -4,7 +4,7 @@ use project;
 create table if not exists users(
 user_id int primary key,
 email varchar(50),
-pswrd varchar(30),
+pswrd varchar(250),
 username varchar(50)
 );
 
