@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, make_response
+from datetime import date
 import mysql.connector
 
 app = Flask(__name__)
@@ -119,6 +120,34 @@ def retrieve_course(user_id):
                 return make_response(lecturer_courses), 200
         else:
             return make_response({'error': 'User not found'}, 400)
+    except Exception as e:
+        return make_response({'error': str(e)}, 400)
+
+@app.route('/registerfor_course/<user_id>', methods=['POST'])
+def registerfor_course(user_id):
+    try:
+        cnx = mysql.connector.connect(host='localhost', user='UWI', password='Database1', database='project')
+        cursor = cnx.cursor()
+        cursor.execute(f"Select role from roles WHERE user_id={user_id}")
+        row=cursor.fetchone()
+        if row and row[0].lower()=="student":
+            content = request.json
+            course_id=content['Course ID']
+            enroll_date= date.today()
+            overall_grade=0
+            cursor.execute(f"SELECT course_name FROM course WHERE course_id = '{course_id}'")
+            course_name=cursor.fetchone()
+            if course_name is None:
+                response=make_response({"error": "Course Not Found"}, 403)
+            else:
+                cursor.execute(f"INSERT INTO enroll VALUES('{user_id}','{course_id}','{enroll_date}','{overall_grade}')")
+                course_name=course_name[0]
+                response=make_response({"success" : f"You are now a member of the '{course_name}' course"}, 202)
+        else:
+            response=make_response({"error":"Only students can register for courses"}, 403)
+        cnx.commit()
+        cursor.close()
+        return response
     except Exception as e:
         return make_response({'error': str(e)}, 400)
 
