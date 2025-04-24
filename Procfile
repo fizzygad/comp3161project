@@ -1,1 +1,1 @@
-web: /opt/venv/bin/python -m gunicorn --bind 0.0.0.0:$PORT DBMSProjectAPI:app
+web: python -m gunicorn --bind 0.0.0.0:$PORT DBMSProjectAPI:app
