@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# macOS and VSCode specific files
+.DS_Store
+.vscode/
+
+# Python logs
+*.log
+
+# SQLite / MySQL dump files (optional)
+*.sql
+
+# Ignore compiled C files (just in case)
+*.so
+
+# Pytest cache
+.pytest_cache/
+
+# Railway deployment cache (if created)
+railway/
+
+# Ignore Jupyter notebooks if not used
+*.ipynb
