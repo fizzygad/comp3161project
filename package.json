@@ -3,6 +3,7 @@
     "builder": "nixpacks",
     "config": {
         "language": "python",
+        "pythonVersion": "3.12.6",
         "installCommand": "pip install -r requirements.txt",
         "startCommand": "python -m gunicorn --bind 0.0.0.0:$PORT DBMSProjectAPI:app"
     }
