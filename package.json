@@ -2,8 +2,9 @@
   "build": {
     "builder": "nixpacks",
     "config": {
-      "installCommand": "pip install -r requirements.txt",
-      "startCommand": "gunicorn --bind 0.0.0.0:$PORT DBMSProjectAPI:app"
+        "language": "python",
+        "installCommand": "pip install -r requirements.txt",
+        "startCommand": "python -m gunicorn --bind 0.0.0.0:$PORT DBMSProjectAPI:app"
     }
   },
   "deploy": {
