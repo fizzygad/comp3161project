@@ -10,14 +10,13 @@ app = Flask(__name__)
 
 def connectDB():
     return mysql.connector.connect(
-        host=os.getenv("MYSQLHOST"),
-        user=os.getenv("MYSQLUSER"),
+        host=os.getenv("MYSQLHOST", "mysql.railway.internal"),
+        user=os.getenv("MYSQLUSER", "root"),
         password=os.getenv("MYSQLPASSWORD"),
-        database=os.getenv("MYSQLDATABASE"),
-        port=int(os.getenv("MYSQLPORT", 3306))
+        database=os.getenv("MYSQLDATABASE", "railway"),
+        port=int(os.getenv("MYSQLPORT", 3306)),
+        connect_timeout=5
     )
-    
-app.config['PROJECT_URL'] = 'mysql://${process.env.MYSQLUSER}:${process.env.MYSQLPASSWORD}@${process.env.MYSQLHOST}:${process.env.MYSQLPORT}/${process.env.MYSQLDATABASE}'
 
 @app.route("/")
 def helloworld():
@@ -297,6 +296,10 @@ def get_members(course_id):
         return jsonify({'members': members}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/calendar_events/course/<int:course_id>', methods=['GET'])
 def get_calendar_events_for_course(course_id):
@@ -310,6 +313,10 @@ def get_calendar_events_for_course(course_id):
         return jsonify({'events': events}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/calendar_events/student', methods=['GET'])
 def get_calendar_events_for_student_by_date():
@@ -330,6 +337,10 @@ def get_calendar_events_for_student_by_date():
         return jsonify({'events': events}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/forums/<int:course_id>', methods=['GET'])
 def get_forums_by_course(course_id):
@@ -345,6 +356,10 @@ def get_forums_by_course(course_id):
         return jsonify({'forums': forums}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/forums/create', methods=['POST'])
 def create_forum():
@@ -369,6 +384,10 @@ def create_forum():
         return jsonify({'message': 'Forum created successfully'}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
+    app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
