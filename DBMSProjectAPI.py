@@ -16,6 +16,8 @@ def connectDB():
         database=os.getenv("MYSQLDATABASE"),
         port=int(os.getenv("MYSQLPORT", 3306))
     )
+    
+app.config['PROJECT_URL'] = 'mysql://${process.env.MYSQLUSER}:${process.env.MYSQLPASSWORD}@${process.env.MYSQLHOST}:${process.env.MYSQLPORT}/${process.env.MYSQLDATABASE}'
 
 @app.route("/")
 def helloworld():
