@@ -362,11 +362,15 @@ def get_forums_by_course(course_id):
 @app.route('/forums/create', methods=['POST'])
 def create_forum():
     data = request.get_json()
+    
+    if not all(key in data for key in ['Course ID', 'Forum Title', 'Forum Description']):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
     course_id = data['Course ID']
     forum_title = data['Forum Title']
     forum_desc = data['Forum Description']
 
-    try:
+    try:        
         cnx = connectDB()
         cursor = cnx.cursor()
 
@@ -374,11 +378,10 @@ def create_forum():
         if cursor.fetchone() is None:
             return jsonify({'error': 'Course not found'}), 404
         
-        forum_prefix="F"                            #forum prefix makes forums easily identifiable
         forum_id=0
         cursor.execute("""SELECT COUNT(%s) FROM forum WHERE course_id = %s""", (forum_id, course_id))
         idcount=cursor.fetchone()[0]+1          #course forum number increases by 1 because of insertion
-        forum_id= (f"{forum_prefix}{idcount:02d}-{course_id}") #prefix + course forum number + courseid 
+        forum_id= (f"F{idcount}-{course_id}") #forum number x of course y
         
         cursor.execute("""
             INSERT INTO forum (forum_id, course_id, forum_title, forum_desc, time_created)
@@ -399,7 +402,7 @@ def get_threads_by_forum(forum_id):
         cnx = connectDB()
         cursor = cnx.cursor()
         cursor.execute("""
-            SELECT *
+            SELECT thread_id, content
             FROM thread 
             WHERE forum_id = %s
         """, (forum_id,))
@@ -415,10 +418,31 @@ def get_threads_by_forum(forum_id):
 @app.route('/threads/create', methods=['POST'])
 def create_thread():
     data = request.get_json()
+    
+    if not all(key in data for key in ['Forum ID', 'Thread Title-Thread Content']):
+        return jsonify({'error': 'Missing required fields'}), 400
+        
     forum_id = data['Forum ID']
-    content = data['Thread Content']
+    content = data['Thread Title-Thread Content']
 
-    try:
+    try:            
+        if '-' not in content:
+            return jsonify({
+                'error': 'Content must contain "-" separator between title and body',
+                'example': 'Thread Title-This is the thread body content...'
+            }), 400
+            
+        # Split and validate title/body
+        parts = content.split('-', 1)
+        title = parts[0].strip()
+        body = parts[1].strip()
+        
+        if not title:
+            return jsonify({'error': 'Thread title cannot be empty'}), 400
+            
+        if not body:
+            return jsonify({'error': 'Thread body cannot be empty'}), 400
+        
         cnx = connectDB()
         cursor = cnx.cursor()
 
@@ -426,11 +450,14 @@ def create_thread():
         if cursor.fetchone() is None:
             return jsonify({'error': 'Forum not found'}), 404
         
-        thread_prefix="T"                            #thread prefix makes forums easily identifiable
         thread_id=0
-        cursor.execute("""SELECT COUNT(%s) FROM thread WHERE forum_id = %s""", (thread_id, forum_id))
+        cursor.execute("""SELECT COUNT(%s) 
+                       FROM thread 
+                       WHERE forum_id = %s
+                       """, (thread_id, forum_id))
+        
         idcount=cursor.fetchone()[0]+1          #course forum number increases by 1 because of insertion
-        thread_id= (f"{thread_prefix}{idcount:02d}-{forum_id}") #prefix + course thread number + forumid 
+        thread_id= (f"T{idcount}{forum_id}") #thread number x of forum y
         
         cursor.execute("""
             INSERT INTO thread (thread_id, forum_id, content)
@@ -441,6 +468,99 @@ def create_thread():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
+        
+@app.route('/threads/reply/create', methods=['POST'])
+def create_thread_reply():
+    data = request.get_json()
+    
+    if not all(key in data for key in ['Thread ID', 'Content']):
+        return jsonify({'error': 'Missing required fields'}), 400
+        
+    thread_id = data['Thread ID']
+    content = data['Content']
+
+    try:                    
+        cnx = connectDB()
+        cursor = cnx.cursor()
+
+        cursor.execute("SELECT * FROM thread WHERE thread_id = %s", (thread_id,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': 'Thread not found'}), 404
+        
+        reply_id=0
+        cursor.execute("""SELECT COUNT(%s) 
+                       FROM reply 
+                       WHERE thread_id = %s
+                       """, (reply_id, thread_id))
+        
+        idcount=cursor.fetchone()[0]+1          #course forum number increases by 1 because of insertion
+        reply_id= (f"R{idcount}{thread_id}") #reply number x of thread y
+        
+        cursor.execute("""
+            INSERT INTO reply (reply_id, thread_id, content)
+            VALUES (%s, %s, %s)
+        """, (reply_id, thread_id, content))
+        cnx.commit()
+        return jsonify({'message': 'Reply created successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
+        
+@app.route('/replies/reply/create', methods=['POST'])
+def create_subreply():
+    data = request.get_json()
+    
+    if not all(key in data for key in ['Reply ID', 'Content']):
+        return jsonify({'error': 'Missing required fields'}), 400
+        
+    parent_reply_id = data['Reply ID']
+    content = data['Content']
+
+    try:                    
+        cnx = connectDB()
+        cursor = cnx.cursor()
+
+        cursor.execute("SELECT thread_id FROM reply WHERE reply_id = %s", (parent_reply_id,))
+        parent_reply = cursor.fetchone()
+        
+        if not parent_reply:
+            return jsonify({'error': 'Parent reply not found'}), 404
+        
+        thread_id = parent_reply[0]  # Access by index instead of column name
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM reply 
+            WHERE reply_id LIKE %s
+        """, (f"SR%{parent_reply_id}",))  # Matches SR<any_digits><parent_reply_id>
+        
+        reply_count = cursor.fetchone()[0]  # Don't add 1 here yet
+        
+        # 3. Generate ID with sequence starting at 1
+        subreply_id = (f"SR{reply_count + 1}{parent_reply_id}")  # Add 1 here
+
+        # 3. Insert the reply
+        cursor.execute("""
+            INSERT INTO reply (reply_id, thread_id, content)
+            VALUES (%s, %s, %s)
+        """, (subreply_id, thread_id, content))
+        
+        cnx.commit()
+        return jsonify({
+            'message': 'Subreply created successfully',
+        }), 201
+        
+    except mysql.connector.Error as err:
+        if 'cnx' in locals(): cnx.rollback()
+        return jsonify({'error': f'Database error: {err}'}), 500
+    except Exception as e:
+        if 'cnx' in locals(): cnx.rollback()
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
     finally:
         if 'cursor' in locals(): cursor.close()
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
