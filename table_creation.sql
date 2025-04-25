@@ -82,7 +82,7 @@ FOREIGN KEY (assignment_id) REFERENCES Assignment(assignment_id)
 );
 
 CREATE TABLE if not exists forum (
-forum_id INT PRIMARY KEY,
+forum_id VARCHAR(50) PRIMARY KEY,
 course_id INT,
 forum_title VARCHAR(100),
 forum_desc TEXT,
@@ -91,22 +91,22 @@ FOREIGN KEY (course_id) REFERENCES course(course_id)
 );
 
 CREATE TABLE if not exists Thread (
-thread_id INT PRIMARY KEY,
-forum_id INT,
+thread_id VARCHAR(50) PRIMARY KEY,
+forum_id VARCHAR(50),
 content TEXT,
 FOREIGN KEY (forum_id) REFERENCES Forum(forum_id)
 );
 
 CREATE TABLE if not exists Reply (
-reply_id INT PRIMARY KEY,
-thread_id INT,
+reply_id VARCHAR(50) PRIMARY KEY,
+thread_id VARCHAR(50),
 content TEXT,
 FOREIGN KEY (thread_id) REFERENCES Thread(thread_id)
 );
 
 CREATE TABLE if not exists Post_Thread (
 user_id INT,
-thread_id INT,
+thread_id VARCHAR(50),
 time_created TIMESTAMP,
 PRIMARY KEY (user_id, thread_id),
 FOREIGN KEY (user_id) REFERENCES Users(user_id),
@@ -115,7 +115,7 @@ FOREIGN KEY (thread_id) REFERENCES Thread(thread_id)
 
 CREATE TABLE if not exists Post_Reply (
 user_id INT,
-reply_id INT,
+reply_id VARCHAR(50),
 time_created TIMESTAMP,
 PRIMARY KEY (user_id, reply_id),
 FOREIGN KEY (user_id) REFERENCES Users(user_id),

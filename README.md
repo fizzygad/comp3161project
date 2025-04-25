@@ -15,4 +15,4 @@
    railway run python migrate.py
    ```
 
-3. Access API: `https://dbmsproject.up.railway.app`
+3. Access API: `https://comp3161project.up.railway.app`

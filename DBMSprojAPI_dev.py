@@ -4,18 +4,16 @@ import bcrypt
 from dotenv import load_dotenv
 import os
 
-load_dotenv()  # Load variables from .env
-
 app = Flask(__name__)
+
+app.config['PROJECT_URL'] = 'mysql://UWI:Database1@localhost/project'
 
 def connectDB():
     return mysql.connector.connect(
-        host=os.getenv("MYSQLHOST", "mysql.railway.internal"),
-        user=os.getenv("MYSQLUSER", "root"),
-        password=os.getenv("MYSQLPASSWORD"),
-        database=os.getenv("MYSQLDATABASE", "railway"),
-        port=int(os.getenv("MYSQLPORT", 3306)),
-        connect_timeout=5
+        host='localhost',
+        user='UWI',
+        password='Database1',
+        database='project'
     )
 
 @app.route("/")
@@ -351,7 +349,7 @@ def get_forums_by_course(course_id):
             SELECT forum_id, forum_title, forum_desc, time_created 
             FROM forum 
             WHERE course_id = %s
-        """, (course_id))
+        """, (course_id,))
         forums = cursor.fetchall()
         return jsonify({'forums': forums}), 200
     except Exception as e:
@@ -364,22 +362,24 @@ def get_forums_by_course(course_id):
 @app.route('/forums/create', methods=['POST'])
 def create_forum():
     data = request.get_json()
-    course_id = data['course_id']
-    forum_title = data['forum_title']
-    forum_desc = data['forum_desc']
+    course_id = data['Course ID']
+    forum_title = data['Forum Title']
+    forum_desc = data['Forum Description']
 
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
 
-        cursor.execute("SELECT * FROM course WHERE course_id = %s", (course_id))
+        cursor.execute("SELECT * FROM course WHERE course_id = %s", (course_id,))
         if cursor.fetchone() is None:
             return jsonify({'error': 'Course not found'}), 404
         
+        forum_prefix="F"                            #forum prefix makes forums easily identifiable
+        forum_id=0
         cursor.execute("""SELECT COUNT(%s) FROM forum WHERE course_id = %s""", (forum_id, course_id))
-        idcount=cursor.fetchone()
-        idcount+=1                                        #coursethreadnumber increases by 1 because of insertion
-        forum_id= int(str(course_id)+str(0)+str(idcount)) #courseid+0+coursethreadnumber
+        idcount=cursor.fetchone()[0]+1          #course forum number increases by 1 because of insertion
+        forum_id= (f"{forum_prefix}{idcount:02d}-{course_id}") #prefix + course forum number + courseid 
+        
         cursor.execute("""
             INSERT INTO forum (forum_id, course_id, forum_title, forum_desc, time_created)
             VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
@@ -393,16 +393,16 @@ def create_forum():
         if 'cursor' in locals(): cursor.close()
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
         
-@app.route('/thread/<int:forum_id>', methods=['GET'])
+@app.route('/threads/<forum_id>', methods=['GET'])
 def get_threads_by_forum(forum_id):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
         cursor.execute("""
-            SELECT thread_id, content
+            SELECT *
             FROM thread 
             WHERE forum_id = %s
-        """, (forum_id))
+        """, (forum_id,))
         threads = cursor.fetchall()
         return jsonify({'threads': threads}), 200
     except Exception as e:
@@ -412,6 +412,38 @@ def get_threads_by_forum(forum_id):
         if 'cursor' in locals(): cursor.close()
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
+@app.route('/threads/create', methods=['POST'])
+def create_thread():
+    data = request.get_json()
+    forum_id = data['Forum ID']
+    content = data['Thread Content']
+
+    try:
+        cnx = connectDB()
+        cursor = cnx.cursor()
+
+        cursor.execute("SELECT * FROM forum WHERE forum_id = %s", (forum_id,))
+        if cursor.fetchone() is None:
+            return jsonify({'error': 'Forum not found'}), 404
+        
+        thread_prefix="T"                            #thread prefix makes forums easily identifiable
+        thread_id=0
+        cursor.execute("""SELECT COUNT(%s) FROM thread WHERE forum_id = %s""", (thread_id, forum_id))
+        idcount=cursor.fetchone()[0]+1          #course forum number increases by 1 because of insertion
+        thread_id= (f"{thread_prefix}{idcount:02d}-{forum_id}") #prefix + course thread number + forumid 
+        
+        cursor.execute("""
+            INSERT INTO thread (thread_id, forum_id, content)
+            VALUES (%s, %s, %s)
+        """, (thread_id, forum_id, content))
+        cnx.commit()
+        return jsonify({'message': 'Thread created successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv("PORT", 5000)))
+    app.run(debug=True, port=5000)
