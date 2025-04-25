@@ -360,6 +360,103 @@ def create_forum():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/threads/<int:forum_id>', methods=['GET'])
+def get_threads_by_forum(forum_id):
+    try:
+        conn = connectDB()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT thread_id, content 
+            FROM thread 
+            WHERE forum_id = %s
+        """, (forum_id,))
+        threads = cursor.fetchall()
+        return jsonify({'threads': threads}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/threads/create', methods=['POST'])
+def create_thread():
+    data = request.get_json()
+    forum_id = data['forum_id']
+    user_id = data['user_id']
+    title = data['title']
+    post_content = data['content']
+
+    try:
+        conn = connectDB()
+        cursor = conn.cursor()
+
+        # Insert the thread
+        cursor.execute("""
+            INSERT INTO thread (thread_id, forum_id, content) 
+            VALUES (NULL, %s, %s)
+        """, (forum_id, f"Title: {title}\n\n{post_content}"))
+        
+        thread_id = cursor.lastrowid  # Get inserted thread ID
+
+        # Register the user as the poster
+        cursor.execute("""
+            INSERT INTO post_thread (user_id, thread_id, time_created) 
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+        """, (user_id, thread_id))
+
+        conn.commit()
+        return jsonify({'message': 'Thread created successfully', 'thread_id': thread_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/replies/create', methods=['POST'])
+def add_reply():
+    data = request.get_json()
+    user_id = data['user_id']
+    content = data['content']
+    parent_type = data['parent_type']  # "thread" or "reply"
+    parent_id = data['parent_id']
+
+    try:
+        conn = connectDB()
+        cursor = conn.cursor()
+
+        if parent_type == "thread":
+            # Reply to thread
+            cursor.execute("""
+                INSERT INTO reply (reply_id, thread_id, content) 
+                VALUES (NULL, %s, %s)
+            """, (parent_id, content))
+            reply_id = cursor.lastrowid
+        elif parent_type == "reply":
+            # Reply to a reply (nested)
+            # First get the thread_id of the parent reply
+            cursor.execute("""
+                SELECT thread_id FROM reply 
+                JOIN thread USING(thread_id)
+                WHERE reply_id = %s
+            """, (parent_id,))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'error': 'Parent reply not found'}), 404
+            thread_id = result[0]
+
+            cursor.execute("""
+                INSERT INTO reply (reply_id, thread_id, content) 
+                VALUES (NULL, %s, %s)
+            """, (thread_id, content))
+            reply_id = cursor.lastrowid
+        else:
+            return jsonify({'error': 'Invalid parent_type'}), 400
+
+        # Register who made the reply
+        cursor.execute("""
+            INSERT INTO post_reply (user_id, reply_id, time_created) 
+            VALUES (%s, %s, CURRENT_TIMESTAMP)
+        """, (user_id, reply_id))
+
+        conn.commit()
+        return jsonify({'message': 'Reply posted successfully', 'reply_id': reply_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(port=5000, debug=True)
