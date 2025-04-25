@@ -3,25 +3,77 @@ import mysql.connector
 import bcrypt
 from dotenv import load_dotenv
 import os
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
 
 app = Flask(__name__)
 
 app.config['PROJECT_URL'] = 'mysql://UWI:Database1@localhost/project'
 
+# def connectDB():
+#     return mysql.connector.connect(
+#         host='localhost',
+#         user='UWI',
+#         password='Database1',
+#         database='project'
+#     )
 def connectDB():
     return mysql.connector.connect(
         host='localhost',
-        user='UWI',
-        password='Database1',
-        database='project'
+        user='root',
+        password='root',
+        database='comp3161finalproj '
     )
+    
+app.config['SECRET_KEY'] = "your_secret_key_string"
+    
+# Token required decorator
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        
+        # Check if token is in headers
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+        
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+        
+        try:
+            # Decode the token
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            
+            # Get current user info
+            cnx = connectDB()
+            cursor = cnx.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM users WHERE username = %s", (data['username'],))
+            current_user = cursor.fetchone()
+            cursor.close()
+            cnx.close()
+            
+            if not current_user:
+                return jsonify({'message': 'User not found!'}), 401
+                
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Invalid token!'}), 401
+            
+        return f(current_user, *args, **kwargs)
+    
+    return decorated
 
 @app.route("/")
 def helloworld():
     return "</p>Hello</p>"
 
 @app.route('/register_user', methods=['POST'])
-def register_user():
+@token_required
+def register_user(current_user):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -64,33 +116,86 @@ def register_user():
         if cnx and cnx.is_connected():
             cnx.close()
     
-@app.route('/login', methods=['POST'])  # Changed to POST
+@app.route('/login', methods=['POST'])
 def login():
     try:
         cnx = connectDB()
-        cursor = cnx.cursor()
+        cursor = cnx.cursor(dictionary=True)
         content = request.json
-        username = content['Username']
         
-        # First get stored hash
-        cursor.execute("SELECT pswrd FROM users WHERE username = %s", (username,))
-        row = cursor.fetchone()
+        if not all(key in content for key in ['username', 'password']):
+            return make_response({'Error': 'Missing username or password'}, 400)
+            
+        username = content['username']
+        password = content['password']
         
-        if row and bcrypt.checkpw(content['Password'].encode('utf-8'), row[0].encode('utf-8')):
-            return jsonify({'message': f"{username} has been logged in."}), 200
+        # Get user information
+        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        
+        # Get user role
+        if user:
+            cursor.execute("SELECT role FROM roles WHERE user_id = %s", (user['user_id'],))
+            role_row = cursor.fetchone()
+            user_role = role_row['role'] if role_row else 'unknown'
         else:
-            return jsonify({'error': 'Unable to login'}), 401
+            user_role = 'unknown'
+        
+        # Debug to check data types
+        print(f"Password from request: {type(password)}")
+        print(f"Stored password type: {type(user['pswrd']) if user else 'No user found'}")
+        
+        # Verify password - handling different possible types of stored password
+        if user:
+            stored_password = user['pswrd']
+            # If stored password is bytes-like object already, use directly
+            if isinstance(stored_password, bytes):
+                password_match = bcrypt.checkpw(password.encode('utf-8'), stored_password)
+            # If stored password is string, encode it
+            else:
+                password_match = bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8'))
+            
+            if password_match:
+                # Generate token
+                token = jwt.encode({
+                    'username': username,
+                    'user_id': user['user_id'],
+                    'role': user_role,
+                    'exp': datetime.utcnow() + timedelta(hours=24)  # Token expires in 24 hours
+                }, app.config['SECRET_KEY'], algorithm="HS256")
+                
+                # Convert token to string if it's in bytes (depends on PyJWT version)
+                if isinstance(token, bytes):
+                    token = token.decode('utf-8')
+                
+                return jsonify({
+                    'message': f"{username} has been logged in.",
+                    'token': token,
+                    'user_id': user['user_id'],
+                    'role': user_role
+                }), 200
+        
+        # Failed authentication
+        return jsonify({'error': 'Invalid credentials'}), 401
     except Exception as e:
-        return jsonify({'error': 'An error has occured'}), 500
+        print(f"Login error: {e}")
+        return jsonify({'error': 'An error has occurred'}), 500
     finally:
         cursor.close()
         cnx.close()
 
 @app.route('/create_course', methods=['POST'])
-def create_course():
+@token_required
+def create_course(current_user):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
+        
+        cursor.execute("SELECT role FROM roles WHERE user_id = %s", (current_user['user_id'],))
+        role = cursor.fetchone()
+        if not role or role[0] not in ['admin']:
+            return make_response({'Error': 'Unauthorized: Only admins can create courses'}, 403)
+        
         content = request.json
 
         # Validate required fields
@@ -123,7 +228,8 @@ def create_course():
             cnx.close()
 
 @app.route('/courses', methods=['GET'])
-def get_all_courses():
+@token_required
+def get_all_courses(current_user):
     try:
         cnx = connectDB()
         cursor = cnx.cursor(dictionary=True)
@@ -143,7 +249,8 @@ def get_all_courses():
             cnx.close()
 
 @app.route('/courses/student/<string:user_id>', methods=['GET'])
-def get_courses_for_student(user_id):
+@token_required
+def get_courses_for_student(current_user, user_id):
     try:
         cnx = connectDB()
         cursor = cnx.cursor(dictionary=True)
@@ -168,6 +275,7 @@ def get_courses_for_student(user_id):
             cnx.close()
 
 @app.route('/courses/lecturer/<string:user_id>', methods=['GET'])
+@token_required
 def get_courses_by_lecturer(user_id):
     try:
         cnx = connectDB()
@@ -193,11 +301,17 @@ def get_courses_by_lecturer(user_id):
             cnx.close()
 
 @app.route('/assign_lecturer', methods=['POST'])
-def assign_lecturer():
+@token_required
+def assign_lecturer(current_user):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
-
+        
+        cursor.execute("SELECT role FROM roles WHERE user_id = %s", (current_user['user_id'],))
+        role = cursor.fetchone()
+        if not role or role[0] not in ['admin']:
+            return make_response({'Error': 'Unauthorized: Only admins can create courses'}, 403)
+        
         content = request.json
         if not all(k in content for k in ['UserID', 'CourseID', 'TeachStartDate']):
             return make_response({'Error': 'Missing required fields'}, 400)
@@ -229,7 +343,8 @@ def assign_lecturer():
             cnx.close()
 
 @app.route('/register_student_course', methods=['POST'])
-def register_student_for_course():
+@token_required
+def register_student_for_course(current_user):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -267,7 +382,8 @@ def register_student_for_course():
             cnx.close()
 
 @app.route('/get_members/<int:course_id>', methods=['GET'])
-def get_members(course_id):
+@token_required
+def get_members(current_user, course_id):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -300,7 +416,8 @@ def get_members(course_id):
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/calendar_events/course/<int:course_id>', methods=['GET'])
-def get_calendar_events_for_course(course_id):
+@token_required
+def get_calendar_events_for_course(current_user, course_id):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -317,7 +434,8 @@ def get_calendar_events_for_course(course_id):
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/calendar_events/student', methods=['GET'])
-def get_calendar_events_for_student_by_date():
+@token_required
+def get_calendar_events_for_student_by_date(current_user):
     user_id = request.args.get('user_id')
     date = request.args.get('date')  # Format: YYYY-MM-DD
 
@@ -341,7 +459,8 @@ def get_calendar_events_for_student_by_date():
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/forums/<int:course_id>', methods=['GET'])
-def get_forums_by_course(course_id):
+@token_required
+def get_forums_by_course(current_user, course_id):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -360,7 +479,8 @@ def get_forums_by_course(course_id):
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/forums/create', methods=['POST'])
-def create_forum():
+@token_required
+def create_forum(current_user):
     data = request.get_json()
     course_id = data['Course ID']
     forum_title = data['Forum Title']
@@ -394,7 +514,8 @@ def create_forum():
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
         
 @app.route('/threads/<forum_id>', methods=['GET'])
-def get_threads_by_forum(forum_id):
+@token_required
+def get_threads_by_forum(current_user, forum_id):
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -413,7 +534,8 @@ def get_threads_by_forum(forum_id):
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
 @app.route('/threads/create', methods=['POST'])
-def create_thread():
+@token_required
+def create_thread(current_user):
     data = request.get_json()
     forum_id = data['Forum ID']
     content = data['Thread Content']
@@ -444,6 +566,7 @@ def create_thread():
     finally:
         if 'cursor' in locals(): cursor.close()
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
