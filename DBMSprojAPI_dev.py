@@ -4,30 +4,19 @@ import bcrypt
 from dotenv import load_dotenv
 import os
 import jwt
-<<<<<<< HEAD
 from datetime import datetime, timedelta, timezone
-=======
-from datetime import datetime, timedelta
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
 from functools import wraps
 
 app = Flask(__name__)
 
 app.config['PROJECT_URL'] = 'mysql://UWI:Database1@localhost/project'
 
-# def connectDB():
-#     return mysql.connector.connect(
-#         host='localhost',
-#         user='UWI',
-#         password='Database1',
-#         database='project'
-#     )
 def connectDB():
     return mysql.connector.connect(
         host='localhost',
-        user='root',
-        password='root',
-        database='comp3161finalproj '
+        user='UWI',
+        password='Database1',
+        database='project'
     )
     
 app.config['SECRET_KEY'] = "your_secret_key_string"
@@ -76,8 +65,7 @@ def helloworld():
     return "</p>Hello</p>"
 
 @app.route('/register_user', methods=['POST'])
-@token_required
-def register_user(current_user):
+def register_user():
     try:
         cnx = connectDB()
         cursor = cnx.cursor()
@@ -132,7 +120,6 @@ def login():
         cnx = connectDB()
         cursor = cnx.cursor(dictionary=True)
         content = request.json
-<<<<<<< HEAD
         
         if not all(key in content for key in ['Username', 'Password']):
             return make_response({'Error': 'Missing username or password'}, 400)
@@ -144,19 +131,6 @@ def login():
         cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
         user = cursor.fetchone()
         
-=======
-        
-        if not all(key in content for key in ['username', 'password']):
-            return make_response({'Error': 'Missing username or password'}, 400)
-            
-        username = content['username']
-        password = content['password']
-        
-        # Get user information
-        cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-        user = cursor.fetchone()
-        
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         # Get user role
         if user:
             cursor.execute("SELECT role FROM roles WHERE user_id = %s", (user['user_id'],))
@@ -185,11 +159,7 @@ def login():
                     'username': username,
                     'user_id': user['user_id'],
                     'role': user_role,
-<<<<<<< HEAD
                     'exp': datetime.now(timezone.utc) + timedelta(hours=24)  # Token expires in 24 hours
-=======
-                    'exp': datetime.utcnow() + timedelta(hours=24)  # Token expires in 24 hours
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
                 }, app.config['SECRET_KEY'], algorithm="HS256")
                 
                 # Convert token to string if it's in bytes (depends on PyJWT version)
@@ -304,11 +274,7 @@ def get_courses_for_student(current_user, user_id):
 
 @app.route('/courses/lecturer/<string:user_id>', methods=['GET'])
 @token_required
-<<<<<<< HEAD
 def get_courses_by_lecturer(current_user, user_id):
-=======
-def get_courses_by_lecturer(user_id):
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     try:
         cnx = connectDB()
         cursor = cnx.cursor(dictionary=True)
@@ -342,11 +308,7 @@ def assign_lecturer(current_user):
         cursor.execute("SELECT role FROM roles WHERE user_id = %s", (current_user['user_id'],))
         role = cursor.fetchone()
         if not role or role[0] not in ['admin']:
-<<<<<<< HEAD
             return make_response({'Error': 'Unauthorized: Only admins can assign lecturers to courses'}, 403)
-=======
-            return make_response({'Error': 'Unauthorized: Only admins can create courses'}, 403)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         
         content = request.json
         if not all(k in content for k in ['User ID', 'Course ID', 'Start Date']):
@@ -469,17 +431,9 @@ def get_calendar_events_for_course(current_user, course_id):
         if 'cursor' in locals(): cursor.close()
         if 'cnx' in locals() and cnx.is_connected(): cnx.close()
 
-<<<<<<< HEAD
 @app.route('/calendar_events/<string:user_id>/<string:date>', methods=['GET'])
 @token_required
 def get_calendar_events_for_student_by_date(current_user, user_id, date):
-=======
-@app.route('/calendar_events/student', methods=['GET'])
-@token_required
-def get_calendar_events_for_student_by_date(current_user):
-    user_id = request.args.get('user_id')
-    date = request.args.get('date')  # Format: YYYY-MM-DD
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
 
     try:
         cnx = connectDB()
@@ -779,11 +733,7 @@ def get_course_sections(current_user, course_id):
         cursor.execute(query, (course_id,))
         sections = cursor.fetchall()
         
-<<<<<<< HEAD
         return make_response({'Sections': sections}, 200)
-=======
-        return make_response({'sections': sections}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving course sections: {e}")
         return make_response({'Error': 'Could not retrieve course sections'}, 500)
@@ -824,11 +774,7 @@ def get_course_content(current_user, course_id):
             section_data['items'] = items
             result.append(section_data)
         
-<<<<<<< HEAD
         return make_response({'Course Content': result}, 200)
-=======
-        return make_response({'course_content': result}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving course content: {e}")
         return make_response({'Error': 'Could not retrieve course content'}, 500)
@@ -847,7 +793,6 @@ def add_section(current_user):
         
         content = request.json
         
-<<<<<<< HEAD
         if not all(key in content for key in ['Course ID', 'Section ID', 'Section Title', 'Description']):
             return make_response({'Error': 'Missing required fields'}, 400)
         
@@ -855,15 +800,6 @@ def add_section(current_user):
         section_id = content['Section ID']
         section_title = content['Section Title']
         section_desc = content['Description']
-=======
-        if not all(key in content for key in ['CourseID', 'SectionID', 'SectionTitle', 'SectionDescription']):
-            return make_response({'Error': 'Missing required fields'}, 400)
-        
-        course_id = content['CourseID']
-        section_id = content['SectionID']
-        section_title = content['SectionTitle']
-        section_desc = content['SectionDescription']
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         
         # Check if user is teaching this course
         cursor.execute("""
@@ -905,7 +841,6 @@ def add_item(current_user):
         
         content = request.json
         
-<<<<<<< HEAD
         if not all(key in content for key in ['Section ID', 'Item ID', 'Item Type', 'Description']):
             return make_response({'Error': 'Missing required fields'}, 400)
         
@@ -913,15 +848,6 @@ def add_item(current_user):
         item_id = content['Item ID']
         item_type = content['Item Type']  # Could be 'link', 'file', 'slides', 'text'
         item_desc = content['Description']
-=======
-        if not all(key in content for key in ['SectionID', 'ItemID', 'ItemType', 'ItemDescription']):
-            return make_response({'Error': 'Missing required fields'}, 400)
-        
-        section_id = content['SectionID']
-        item_id = content['ItemID']
-        item_type = content['ItemType']  # Could be 'link', 'file', 'slides', 'text'
-        item_desc = content['ItemDescription']
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         
         # Get course_id from section_id to check permissions
         cursor.execute("SELECT course_id FROM section WHERE section_id = %s", (section_id,))
@@ -973,7 +899,6 @@ def create_assignment(current_user):
         
         content = request.json
         
-<<<<<<< HEAD
         if not all(key in content for key in ['Assignment ID', 'Course ID', 'Title', 'Max Score', 'Due Date']):
             return make_response({'Error': 'Missing required fields'}, 400)
         
@@ -982,16 +907,6 @@ def create_assignment(current_user):
         title = content['Title']
         max_score = content['Max Score']
         due_date = content['Due Date']
-=======
-        if not all(key in content for key in ['AssignmentID', 'CourseID', 'Title', 'MaxScore', 'DueDate']):
-            return make_response({'Error': 'Missing required fields'}, 400)
-        
-        assignment_id = content['AssignmentID']
-        course_id = content['CourseID']
-        title = content['Title']
-        max_score = content['MaxScore']
-        due_date = content['DueDate']
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         
         # Check if user is teaching this course
         cursor.execute("""
@@ -1046,11 +961,7 @@ def get_course_assignments(current_user, course_id):
         cursor.execute(query, (course_id,))
         assignments = cursor.fetchall()
         
-<<<<<<< HEAD
         return make_response({'Assignments': assignments}, 200)
-=======
-        return make_response({'assignments': assignments}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving assignments: {e}")
         return make_response({'Error': 'Could not retrieve assignments'}, 500)
@@ -1069,21 +980,12 @@ def submit_assignment(current_user):
         
         content = request.json
         
-<<<<<<< HEAD
         if not all(key in content for key in ['Submission ID', 'Assignment ID', 'File URL']):
             return make_response({'Error': 'Missing required fields'}, 400)
         
         submission_id = content['Submission ID']
         assignment_id = content['Assignment ID']
         file_url = content['File URL']
-=======
-        if not all(key in content for key in ['SubmissionID', 'AssignmentID', 'FileURL']):
-            return make_response({'Error': 'Missing required fields'}, 400)
-        
-        submission_id = content['SubmissionID']
-        assignment_id = content['AssignmentID']
-        file_url = content['FileURL']
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         user_id = current_user['user_id']
         
         # Check if the assignment exists
@@ -1142,19 +1044,11 @@ def grade_assignment(current_user):
         
         content = request.json
         
-<<<<<<< HEAD
         if not all(key in content for key in ['Submission ID', 'Assignment ID', 'Grade']):
             return make_response({'Error': 'Missing required fields'}, 400)
         
         submission_id = content['Submission ID']
         assignment_id = content['Assignment ID']
-=======
-        if not all(key in content for key in ['SubmissionID', 'AssignmentID', 'Grade']):
-            return make_response({'Error': 'Missing required fields'}, 400)
-        
-        submission_id = content['SubmissionID']
-        assignment_id = content['AssignmentID']
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         grade = content['Grade']
         
         # Check if the submission exists
@@ -1174,12 +1068,8 @@ def grade_assignment(current_user):
         course_id, max_score = assignment
         
         # Validate grade
-<<<<<<< HEAD
         float_grade=float(grade)
         if float_grade < 0 or float_grade > float(max_score):
-=======
-        if float(grade) < 0 or float(grade) > float(max_score):
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
             return make_response({'Error': f'Grade must be between 0 and {max_score}'}, 400)
         
         # Check if user is teaching this course
@@ -1197,11 +1087,7 @@ def grade_assignment(current_user):
             SET grade = %s
             WHERE submission_id = %s AND assignment_id = %s
         """
-<<<<<<< HEAD
         cursor.execute(update_query, (float_grade, submission_id, assignment_id))
-=======
-        cursor.execute(update_query, (grade, submission_id, assignment_id))
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
         
         # Calculate new overall grade for the student in this course
         cursor.execute("""
@@ -1214,11 +1100,7 @@ def grade_assignment(current_user):
         
         avg_result = cursor.fetchone()
         if avg_result and avg_result[0]:
-<<<<<<< HEAD
             new_overall = float(avg_result[0])
-=======
-            new_overall = avg_result[0]
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
             
             # Update overall grade in enroll table
             cursor.execute("""
@@ -1247,18 +1129,11 @@ def get_courses_with_many_students(current_user):
         cursor = cnx.cursor(dictionary=True)
         
         # Use the view for courses with 50+ students
-<<<<<<< HEAD
         #cursor.execute("""SELECT c.course_name FROM course c JOIN enroll e WHERE c.course_id = e.course_id GROUP BY c.course_id HAVING COUNT(e.user_id)>=50 ORDER BY idcount DESC""")
         cursor.execute("SELECT * FROM vw_courses_with_many_students")
         courses = cursor.fetchall()
         
         return make_response({'Courses': courses}, 200)
-=======
-        cursor.execute("SELECT * FROM vw_courses_with_many_students")
-        courses = cursor.fetchall()
-        
-        return make_response({'courses': courses}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving report: {e}")
         return make_response({'Error': 'Could not retrieve report'}, 500)
@@ -1276,18 +1151,11 @@ def get_students_with_many_courses(current_user):
         cursor = cnx.cursor(dictionary=True)
         
         # Use the view for students enrolled in 5+ courses
-<<<<<<< HEAD
         #cursor.execute("""SELECT u.username FROM users u JOIN enroll e WHERE u.user_id = e.user_id GROUP BY e.user_id HAVING COUNT(e.course_id)>=5""")
         cursor.execute("SELECT * FROM vw_students_with_many_courses")
         students = cursor.fetchall()
         
         return make_response({'Students': students}, 200)
-=======
-        cursor.execute("SELECT * FROM vw_students_with_many_courses")
-        students = cursor.fetchall()
-        
-        return make_response({'students': students}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving report: {e}")
         return make_response({'Error': 'Could not retrieve report'}, 500)
@@ -1305,18 +1173,11 @@ def get_lecturers_with_many_courses(current_user):
         cursor = cnx.cursor(dictionary=True)
         
         # Use the view for lecturers teaching 3+ courses
-<<<<<<< HEAD
         #cursor.execute("""SELECT u.username FROM users u JOIN teach t WHERE u.user_id = t.user_id GROUP BY t.user_id HAVING COUNT(t.course_id)>=3""")
         cursor.execute("SELECT * FROM vw_lecturers_with_many_courses")
         lecturers = cursor.fetchall()
         
         return make_response({'Lecturers': lecturers}, 200)
-=======
-        cursor.execute("SELECT * FROM vw_lecturers_with_many_courses")
-        lecturers = cursor.fetchall()
-        
-        return make_response({'lecturers': lecturers}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving report: {e}")
         return make_response({'Error': 'Could not retrieve report'}, 500)
@@ -1334,18 +1195,11 @@ def get_most_enrolled_courses(current_user):
         cursor = cnx.cursor(dictionary=True)
         
         # Use the view for the 10 most enrolled courses
-<<<<<<< HEAD
         #cursor.execute("""SELECT c.course_id, c.course_name FROM course c JOIN enroll e WHERE c.course_id = e.course_id GROUP BY c.course_id ORDER BY COUNT(e.user_id) DESC LIMIT 10""")
         cursor.execute("SELECT * FROM vw_most_enrolled_courses")
         courses = cursor.fetchall()
         
         return make_response({'Courses': courses}, 200)
-=======
-        cursor.execute("SELECT * FROM vw_most_enrolled_courses")
-        courses = cursor.fetchall()
-        
-        return make_response({'courses': courses}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving report: {e}")
         return make_response({'Error': 'Could not retrieve report'}, 500)
@@ -1363,18 +1217,11 @@ def get_top_students(current_user):
         cursor = cnx.cursor(dictionary=True)
         
         # Use the view for top 10 students by overall average
-<<<<<<< HEAD
         #cursor.execute("""SELECT user_id, AVG(overall_grade) AS avggrade FROM enroll GROUP BY user_id ORDER BY avggrade DESC LIMIT 10""")
         cursor.execute("SELECT * FROM vw_top_students")
         students = cursor.fetchall()
         
         return make_response({'Students': students}, 200)
-=======
-        cursor.execute("SELECT * FROM vw_top_students")
-        students = cursor.fetchall()
-        
-        return make_response({'students': students}, 200)
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
     except Exception as e:
         print(f"Error retrieving report: {e}")
         return make_response({'Error': 'Could not retrieve report'}, 500)
@@ -1383,9 +1230,6 @@ def get_top_students(current_user):
             cursor.close()
         if cnx and cnx.is_connected():
             cnx.close()
-<<<<<<< HEAD
             
-=======
->>>>>>> 59980b7962aada06914b5145d13cf4e75f2d9bad
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
