@@ -40,7 +40,7 @@ FOREIGN KEY (course_id) REFERENCES course(course_id)
 );
 
 CREATE TABLE if not exists section (
-section_id INT PRIMARY KEY,
+section_id VARCHAR(50) PRIMARY KEY,
 course_id INT,
 section_title VARCHAR(100),
 section_desc TEXT,
@@ -48,15 +48,15 @@ FOREIGN KEY (course_id) REFERENCES Course(course_id)
 );
 
 CREATE TABLE if not exists item (
-item_id INT PRIMARY KEY,
-section_id INT,
+item_id VARCHAR(50) PRIMARY KEY,
+section_id VARCHAR(50),
 item_type VARCHAR(50),
 item_desc TEXT,
 FOREIGN KEY (section_id) REFERENCES section(section_id)
 );
 
 CREATE TABLE if not exists assignment (
-assignment_id INT PRIMARY KEY,
+assignment_id VARCHAR(50) PRIMARY KEY,
 course_id INT,
 title VARCHAR(100),
 max_score DECIMAL(5,2),
@@ -65,7 +65,7 @@ FOREIGN KEY (course_id) REFERENCES course(course_id)
 );
 
 CREATE TABLE if not exists submission (
-submission_id INT PRIMARY KEY,
+submission_id VARCHAR(50) PRIMARY KEY,
 user_id INT,
 file_url TEXT,
 submit_date DATE,
@@ -73,8 +73,8 @@ FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
 CREATE TABLE if not exists Receives (
-submission_id INT,
-assignment_id INT,
+submission_id VARCHAR(50),
+assignment_id VARCHAR(50),
 grade DECIMAL(5,2),
 PRIMARY KEY (submission_id, assignment_id),
 FOREIGN KEY (submission_id) REFERENCES Submission(submission_id),
